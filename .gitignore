@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version
+
+# Testing / coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local config (the app falls back to config/config.example.yaml)
+config/config.yaml
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Local data / artifacts (generated, never committed)
+artifacts/
+data/local/
+data/raw/
+data/processed/
+*.parquet
+*.pkl
+*.joblib
+*.h5
+*.keras
+!data/sample/**
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

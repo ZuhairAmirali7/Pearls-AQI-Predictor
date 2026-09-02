@@ -1,0 +1,127 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pearls-aqi-predictor"
+version = "0.1.0"
+description = "Serverless AQI forecasting system that predicts air quality for the next 3 days."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Pearls AQI Team" }]
+keywords = ["air-quality", "aqi", "forecasting", "mlops", "time-series"]
+
+# Core dependencies — everything needed to run the project in local sample mode,
+# train the classical models, serve the API, and render the dashboard.
+# Heavy / optional dependencies (TensorFlow, SHAP, Hopsworks) live in extras so
+# the project stays runnable on constrained / free-tier environments.
+dependencies = [
+    "pandas>=2.0,<3.0",
+    "numpy>=1.24,<3.0",
+    "scikit-learn>=1.3,<2.0",
+    "pyarrow>=12.0",
+    "pydantic>=2.5,<3.0",
+    "pydantic-settings>=2.1,<3.0",
+    "PyYAML>=6.0",
+    "requests>=2.31",
+    "tenacity>=8.2",
+    "python-dateutil>=2.8",
+    "joblib>=1.3",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "streamlit>=1.31",
+    "plotly>=5.18",
+]
+
+[project.optional-dependencies]
+# Deep learning model (TensorFlow feed-forward network).
+dl = ["tensorflow>=2.15,<2.17; python_version < '3.12'", "tensorflow>=2.16; python_version >= '3.12'"]
+# SHAP explainability.
+explain = ["shap>=0.44"]
+# Hopsworks feature store + model registry.
+hopsworks = ["hopsworks>=3.4"]
+# Developer tooling.
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.3",
+    "black>=24.1",
+    "mypy>=1.8",
+    "types-PyYAML",
+    "types-requests",
+    "httpx>=0.27",
+    "requests-mock>=1.11",
+]
+# Everything (convenience meta-extra for full local development).
+all = [
+    "pearls-aqi-predictor[dl,explain,dev]",
+]
+
+# CLI entrypoints are invoked as `python scripts/<name>.py` (see Makefile / README).
+# They are intentionally not registered as console_scripts because the `scripts/`
+# directory is not shipped in the wheel (only `src/pearls_aqi` is).
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pearls_aqi"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+# ---------------------------------------------------------------------------
+# Tooling configuration
+# ---------------------------------------------------------------------------
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts", "api", "app"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    "E501",   # line length handled by black
+    "B008",   # FastAPI Depends() in defaults is idiomatic
+    "RUF012", # mutable class attrs — noisy for pydantic/config style
+    "UP042",  # (str, Enum) kept intentionally (StrEnum changes str()/f-string behaviour)
+    "RUF001", # ambiguous unicode in strings (intentional en-dashes in UI copy)
+    "RUF002", # ambiguous unicode in docstrings
+    "RUF003", # ambiguous unicode in comments
+    "RUF005", # list concatenation is clearer than unpacking here
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+"notebooks/*" = ["E402", "F401"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+ignore_missing_imports = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+plugins = ["pydantic.mypy"]
+exclude = ["notebooks/", "build/", "dist/"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra -q"
+markers = [
+    "integration: integration tests (may touch local filesystem, no live network)",
+    "contract: schema/contract tests",
+    "smoke: end-to-end smoke tests on fixture data",
+    "live: tests that require live network access (deselected by default)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["src/pearls_aqi"]
+omit = ["*/hopsworks_*.py", "*/tensorflow_model.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

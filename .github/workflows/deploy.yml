@@ -1,0 +1,74 @@
+name: Deploy
+
+# Deploys the API and dashboard on merge to the deploy branch, only when the
+# relevant secrets exist. Every step is guarded so the workflow never fails for
+# lack of credentials — it simply skips what it cannot do and logs guidance.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          cp config/config.example.yaml config/config.yaml
+      - name: Tests must pass before deploy
+        run: pytest -m "not live" -q
+
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    needs: test-gate
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GitHub Container Registry
+        if: ${{ github.event_name == 'push' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' }}
+          tags: ghcr.io/${{ github.repository }}:latest
+
+  deploy-api:
+    runs-on: ubuntu-latest
+    needs: build-and-push-image
+    steps:
+      - name: Trigger API host deploy (Render/Railway/Cloud Run)
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
+            echo "Triggering API deploy hook...";
+            curl -fsS -X POST "$RENDER_DEPLOY_HOOK";
+          else
+            echo "No RENDER_DEPLOY_HOOK secret set — skipping API deploy.";
+            echo "See docs/deployment.md to configure Render/Railway/Cloud Run.";
+          fi
+
+  deploy-dashboard:
+    runs-on: ubuntu-latest
+    needs: build-and-push-image
+    steps:
+      - name: Streamlit Community Cloud note
+        run: |
+          echo "Streamlit Community Cloud deploys automatically from the connected";
+          echo "GitHub repo (entrypoint: app/streamlit_app.py). No action needed here.";
+          echo "See docs/deployment.md.";

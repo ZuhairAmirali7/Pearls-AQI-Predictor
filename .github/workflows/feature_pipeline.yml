@@ -1,0 +1,52 @@
+name: Feature Pipeline (hourly)
+
+# Runs the feature pipeline every hour. Uses the keyless Open-Meteo provider by
+# default, so it works with no secrets. Writes to Hopsworks when configured, else
+# to an (ephemeral in CI) local store — the run still validates the pipeline.
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      city:
+        description: "City to ingest"
+        default: "Karachi"
+        required: false
+
+concurrency:
+  group: feature-pipeline
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    env:
+      AQI_PROVIDER: ${{ vars.AQI_PROVIDER || 'openmeteo' }}
+      WEATHER_PROVIDER: ${{ vars.WEATHER_PROVIDER || 'openmeteo' }}
+      OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+      FEATURE_STORE_BACKEND: ${{ vars.FEATURE_STORE_BACKEND || 'local' }}
+      HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+      HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          if [ "$FEATURE_STORE_BACKEND" = "hopsworks" ]; then pip install -e ".[hopsworks]"; fi
+      - name: Prepare config
+        run: cp config/config.example.yaml config/config.yaml
+      - name: Run feature pipeline
+        run: python scripts/run_feature_pipeline.py --city "${{ github.event.inputs.city || 'Karachi' }}"
+      - name: Upload run summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-run-summary
+          path: artifacts/runs/**
+          if-no-files-found: ignore
+          retention-days: 14
