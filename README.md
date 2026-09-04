@@ -18,6 +18,10 @@ APIs, engineers time-series features, stores them in a feature store, trains and
 compares several forecasting models, registers the best one, and serves an
 hourly 3-day AQI forecast through a FastAPI backend and a Streamlit dashboard.
 
+The comprehensive project report is available at
+[`docs/final_report.md`](docs/final_report.md), prepared by **Zuhair Amirali
+Merchant**.
+
 **It runs end-to-end with zero paid services and zero API keys** by defaulting to
 the free [Open-Meteo](https://open-meteo.com/) APIs, a local Parquet feature
 store, and a local filesystem model registry. Hopsworks (feature store + model

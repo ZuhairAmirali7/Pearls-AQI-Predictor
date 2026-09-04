@@ -1,5 +1,19 @@
 # Pearls AQI Predictor — Final Report
 
+| Report field | Details |
+| --- | --- |
+| **Prepared by** | **Zuhair Amirali Merchant** |
+| **Project** | Pearls AQI Predictor |
+| **Version** | 0.1.0 |
+| **Report date** | 4 September 2026 |
+| **Primary location** | Karachi, Pakistan |
+| **Forecast horizon** | 72 hours |
+
+This report documents the complete project: its purpose, architecture, data
+pipeline, feature engineering, modelling methodology, evaluation, application
+interfaces, automation, testing, security posture, limitations, and future
+development path.
+
 > **Health disclaimer.** All forecasts are model estimates for informational
 > purposes only and **do not replace official air-quality warnings or medical
 > advice.**
@@ -35,12 +49,56 @@ Collect data → store raw + processed → engineer features → backfill histor
 train/compare models → register the best → forecast 72h → dashboard + API →
 explain → alert → automate (hourly/daily) → test/document/deploy.
 
+## Project scope and delivered components
+
+| Area | Delivered capability |
+| --- | --- |
+| Data acquisition | Open-Meteo, OpenWeather, and deterministic sample providers |
+| Data engineering | Validation, schema normalisation, AQI calculation, backfill, and feature generation |
+| Machine learning | Nine model approaches, chronological evaluation, selection, and promotion |
+| MLOps | Feature-store and model-registry abstractions with local and Hopsworks backends |
+| Forecasting | Direct 72-horizon prediction with uncertainty bands and hazard detection |
+| Explainability | Global and local feature attribution with plain-language summaries |
+| User interfaces | FastAPI service and multipage Streamlit dashboard |
+| Automation | CI, hourly feature processing, daily training, and deployment workflows |
+| Quality | Unit, integration, contract, and end-to-end tests plus static quality gates |
+| Documentation | Setup, API, architecture, data dictionary, deployment, model card, and limitations |
+
 ## Architecture
 
 Four stages — providers → feature pipeline → training pipeline → forecasting app
 — glued by a feature store and model registry, automated by GitHub Actions.
 See [`architecture.md`](architecture.md). Abstraction interfaces make providers,
 feature store, registry, models, and alert channels swappable without rewrites.
+
+```mermaid
+flowchart LR
+    A["Air-quality and weather providers"] --> B["Validation and feature pipeline"]
+    B --> C[("Feature store")]
+    C --> D["Training and evaluation pipeline"]
+    D --> E[("Model registry")]
+    C --> F["72-hour prediction service"]
+    E --> F
+    F --> G["FastAPI"]
+    F --> H["Streamlit dashboard"]
+    F --> I["Alerts and explanations"]
+    J["GitHub Actions"] --> B
+    J --> D
+```
+
+## Repository organisation
+
+| Path | Responsibility |
+| --- | --- |
+| `src/pearls_aqi/` | Core domain, data, feature, model, evaluation, forecasting, monitoring, and storage logic |
+| `api/` | FastAPI application, request/response schemas, dependencies, rate limiting, and routes |
+| `app/` | Streamlit application, pages, charts, AQI components, and service integration |
+| `scripts/` | Backfill, feature pipeline, training, forecast, and sample-data command-line entry points |
+| `tests/` | Unit, integration, contract, and smoke coverage |
+| `notebooks/` | Reproducible exploratory analysis and model experiments |
+| `config/` | Example application configuration and logging configuration |
+| `.github/workflows/` | CI, scheduled pipelines, and deployment automation |
+| `docs/` | Technical, operational, and model-governance documentation |
 
 ## Data sources
 
@@ -165,6 +223,21 @@ GitHub Actions: `ci.yml` (lint/format/type/test/docker), `feature_pipeline.yml`
 (hourly), `training_pipeline.yml` (daily, conditional promotion), `deploy.yml`
 (gated deploy). All run without secrets in sample/Open-Meteo mode.
 
+## Configuration and security
+
+The default Open-Meteo/local configuration requires no credentials. Optional
+OpenWeather, Hopsworks, SMTP, webhook, and deployment credentials are loaded
+from environment variables or GitHub Actions secrets rather than source code.
+The committed `.env.example` contains names and blank placeholders only.
+
+The repository ignores local configuration, `.env` variants, private-key and
+certificate formats, service-account exports, generated data, trained models,
+virtual environments, and caches. A repository and history scan found no
+committed API keys, tokens, passwords, private keys, credential-bearing URLs, or
+notebook outputs. Operational deployments should additionally sanitise HTTP
+exception messages before logging because some HTTP libraries include query
+parameters in connection-error text.
+
 ## Testing
 
 pytest suite: unit (AQI, categories, features, lags/rolling/cyclical, targets,
@@ -173,6 +246,20 @@ integration (feature pipeline, storage/registry, training, forecast service,
 API), contract (provider/prediction/model schemas), and smoke (end-to-end on
 fixtures). External APIs are mocked; no production credentials required. Quality
 gates: Ruff, Black, mypy.
+
+### Verified quality status
+
+The following checks were run locally on 4 September 2026 using Python 3.11:
+
+| Check | Result |
+| --- | --- |
+| pytest | **139 tests passed** |
+| Ruff | **Passed** |
+| Black | **Passed — 115 files unchanged** |
+| mypy | **Passed — no issues in 58 source files** |
+
+The test run produced only non-failing dependency/environment warnings: a
+Starlette `TestClient` deprecation warning and a joblib CPU-count fallback.
 
 ## Deployment
 
@@ -214,3 +301,19 @@ make test            # full test suite
 To reproduce the exact sample-mode table above:
 `python scripts/seed_sample_data.py --city Karachi --days 200 && python
 scripts/run_training_pipeline.py --city Karachi --no-tune`.
+
+## Conclusion
+
+Pearls AQI Predictor delivers a complete, modular AQI forecasting workflow from
+data collection through public-facing predictions. It is reproducible without
+paid infrastructure, separates optional cloud integrations behind clear
+interfaces, applies leakage-aware time-series evaluation, exposes both an API
+and dashboard, and includes automated quality and operations workflows. The
+current synthetic-data results demonstrate the engineering pipeline rather than
+production forecasting accuracy; the principal next milestone is a sustained
+real-data backfill followed by production evaluation, calibrated uncertainty,
+and monitored deployment.
+
+---
+
+**Report prepared by Zuhair Amirali Merchant.**
